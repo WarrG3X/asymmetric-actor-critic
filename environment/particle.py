@@ -14,15 +14,36 @@ from gym.envs.mujoco import mujoco_env
 from scipy import misc
 
 
+import glfw
+import OpenGL.GL as gl
+
+
+
 class ParticleEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self, dist_epsilon=0.1):
         mujoco_env.MujocoEnv.__init__(self, os.path.join(os.getcwd(), 'environment/assets/particle.xml'), 5)
         utils.EzPickle.__init__(self)
         self.dist_epsilon = dist_epsilon
 
-        self.viewer = mujoco_py.MjViewer(init_width=100, init_height=100)
-        self.viewer.start()
-        self.viewer.set_model(self.model)
+        #self.viewer = mujoco_py.MjViewer(init_width=100, init_height=100)
+        #self.viewer = mujoco_py.MjViewer(self.sim)
+        #self.viewer.start()
+        #self.viewer.set_model(self.model)
+
+        self.init_qpos = self.sim.data.qpos.ravel().copy()
+        self.init_qvel = self.sim.data.qvel.ravel().copy()
+        observation, _reward, done, _info = self.step(np.zeros(self.model.nu))
+        assert not done
+        self.obs_dim = observation.size
+
+        bounds = self.model.actuator_ctrlrange.copy()
+        low = bounds[:, 0]
+        high = bounds[:, 1]
+        self.action_space = spaces.Box(low=low, high=high)
+
+        high = np.inf*np.ones(self.obs_dim)
+        low = -high
+        self.observation_space = spaces.Box(low, high)
 
         self.state = None
         self.state_dim = self.state_vector().shape
@@ -31,7 +52,11 @@ class ParticleEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         self.state_space = spaces.Box(low, high)
 
 
-    def _step(self, a):
+
+        self.seed()
+
+
+    def step(self, a):
         xpos = self.get_body_com("agent")[0]
         self.do_simulation(a, self.frame_skip)
         self.state = state = self.state_vector()
@@ -55,7 +80,7 @@ class ParticleEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_image(self):
         self.render()
-        data = self._get_viewer().get_image()
+        data = self.get_image(self._get_viewer())
 
         img_data = data[0]
         width = data[1]
@@ -129,5 +154,14 @@ class ParticleEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 0
         self.viewer.cam.elevation = -90
-        self.viewer.cam.distance = 4.85 
+        self.viewer.cam.distance = 4.85
+
+    def get_image(self,viewer_obj):
+        glfw.make_context_current(viewer_obj.window)
+        width,height = glfw.get_framebuffer_size(viewer_obj.window)
+        gl.glReadBuffer(gl.GL_BACK)
+        data = gl.glReadPixels(0, 0, width, height, gl.GL_RGB, gl.GL_UNSIGNED_BYTE)
+        return (data, width, height)
+
+
 

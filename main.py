@@ -26,6 +26,7 @@ def run(env_id, seed, noise_type, layer_norm, evaluation, **kwargs):
 
     # Create envs.
     env = gym.make(env_id)
+    #env = ParticleEnv()
     eval_env = None
 
     # Parse noise_type
