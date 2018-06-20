@@ -80,7 +80,7 @@ class ParticleEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_image(self):
         self.render()
-        data = self.get_image(self._get_viewer())
+        data = self.get_image(self._get_viewer(mode="human"))
 
         img_data = data[0]
         width = data[1]
